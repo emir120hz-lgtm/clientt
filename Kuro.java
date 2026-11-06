@@ -93,15 +93,6 @@ public class Kuro {
                 .header("User-Agent", "Kuro-Launcher/2.1").build(),
                 HttpResponse.BodyHandlers.ofString()).body();
     }
-    static String sha1(String in) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-1");
-            byte[] d = md.digest(in.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : d) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (Exception e) { return ""; }
-    }
     static void deleteRecursive(Path p) throws IOException {
         if (Files.isDirectory(p)) {
             try (Stream<Path> s = Files.list(p)) {
@@ -617,7 +608,6 @@ public class Kuro {
 
     /** Microsoft OAuth2 + XBL + XSTS + Minecraft. Tam akış (client_id gerekir). */
     void startMsLogin() {
-        String clientId = cs("msClientId", "00000000402b5328");
         JOptionPane.showMessageDialog(frame,
                 "Microsoft girişi için Azure uygulaması client_id gerekir.\n" +
                 "Şu anda placeholder kullanılıyor. Ayarlar > msClientId alanına kendi ID'nizi girin.\n" +
@@ -1148,17 +1138,21 @@ public class Kuro {
                 try {
                     download(j[0], Paths.get(j[1]), 0, p -> { });
                 } catch (InterruptedException ie) {
-                   log("İndirme iptal edildi."); throw new RuntimeException(ie);
+                    log("İndirme iptal edildi."); 
+                    throw new RuntimeException(ie);
                 } catch (Exception e) {
                     log("Hata: " + j[0] + " - " + e.getMessage());
                 }
-                catch (ExecutionException ee) { if (ee.getCause() instanceof InterruptedException) throw new InterruptedException(); }
+                int d = done.incrementAndGet();
                 if (d % 15 == 0 || d == jobs.size())
                     prog(d, jobs.size(), "İndiriliyor " + d + " / " + jobs.size());
             }));
             for (Future<?> f : fs) {
                 try { f.get(); }
-                catch (ExecutionException ee) { if (ee.getCause() instanceof InterruptedException) throw (InterruptedException) ee.getCause(); }
+                catch (ExecutionException ee) { 
+                    if (ee.getCause() instanceof RuntimeException && ee.getCause().getCause() instanceof InterruptedException) 
+                        throw new InterruptedException(); 
+                }
             }
             ex.shutdown();
 
