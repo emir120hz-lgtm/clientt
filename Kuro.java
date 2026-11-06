@@ -27,7 +27,8 @@ public class Kuro {
     // ---------- tema ----------
     static final Color PANEL = new Color(20, 20, 28), PANEL2 = new Color(30, 30, 42), BORDER = new Color(48, 46, 64),
             FG = new Color(236, 236, 244), MUTED = new Color(140, 140, 160), ACC = new Color(150, 90, 255),
-            ACC2 = new Color(105, 70, 235), RED = new Color(255, 100, 115), GREEN = new Color(120, 220, 140);
+            ACC2 = new Color(105, 70, 235), RED = new Color(255, 100, 115), GREEN = new Color(120, 220, 140),
+            YELLOW = new Color(240, 200, 100);
     static final Path ROOT = Paths.get(System.getProperty("user.home"), ".kuro");
     static final HttpClient HTTP = HttpClient.newBuilder()
             .followRedirects(HttpClient.Redirect.ALWAYS)
@@ -35,7 +36,7 @@ public class Kuro {
     static final String OS = System.getProperty("os.name").toLowerCase().contains("win") ? "windows"
             : System.getProperty("os.name").toLowerCase().contains("mac") ? "osx" : "linux";
     static final String[] LOADERS = {"Vanilla", "Fabric"};
-    static final String[] MOD_CATEGORIES = {"Tümü", "optimization", "shaders", "library", "audio"};
+    static final String[] MOD_CATEGORIES = {"Tümü", "optimization", "shaders", "library", "audio", "decoration", "adventure", "technology"};
 
     // ---------- yardımcılar ----------
     static Color mix(Color a, Color b, float t) {
@@ -92,6 +93,15 @@ public class Kuro {
                 .header("User-Agent", "Kuro-Launcher/3.0").build(),
                 HttpResponse.BodyHandlers.ofString()).body();
     }
+    static void deleteRecursive(Path p) throws IOException {
+        if (Files.isDirectory(p)) {
+            try (Stream<Path> s = Files.list(p)) {
+                for (Path c : s.toList()) deleteRecursive(c);
+            }
+        }
+        Files.deleteIfExists(p);
+    }
+    
     static void download(String url, Path dst, long totalHint, IntConsumer onProgress) throws Exception {
         if (Files.exists(dst) && Files.size(dst) > 0) { onProgress.accept(100); return; }
         Files.createDirectories(dst.getParent());
@@ -696,6 +706,14 @@ public class Kuro {
         sl.setMaximumSize(new Dimension(420, 30));
         sl.on = v -> { cfg.put("ram", (long) v); saveCfg(); rl.setText("BELLEK (RAM): " + v + " GB"); };
         b.add(sl); b.add(Box.createVerticalStrut(20));
+
+        b.add(lbl("EK JVM ARGÜMANLARI", 11, true, MUTED)); b.add(Box.createVerticalStrut(8));
+        KField jvm = new KField("örnek: -XX:+UseG1GC"); jvm.setText(cs("jvm", ""));
+        jvm.setAlignmentX(0f); jvm.setMaximumSize(new Dimension(520, 44));
+        jvm.addKeyListener(new KeyAdapter() {
+            public void keyReleased(KeyEvent e) { cfg.put("jvm", jvm.getText()); saveCfg(); }
+        });
+        b.add(jvm); b.add(Box.createVerticalStrut(20));
 
         b.add(lbl("JAVA YOLU (boş = sistem varsayılanı)", 11, true, MUTED)); b.add(Box.createVerticalStrut(8));
         JPanel jr = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0)); jr.setOpaque(false); jr.setAlignmentX(0f);
