@@ -1148,11 +1148,11 @@ public class Kuro {
                 try {
                     download(j[0], Paths.get(j[1]), 0, p -> { });
                 } catch (InterruptedException ie) {
-                    log("İndirme iptal edildi."); throw ie;
+                   log("İndirme iptal edildi."); throw new RuntimeException(ie);
                 } catch (Exception e) {
                     log("Hata: " + j[0] + " - " + e.getMessage());
                 }
-                int d = done.incrementAndGet();
+                catch (ExecutionException ee) { if (ee.getCause() instanceof InterruptedException) throw new InterruptedException(); }
                 if (d % 15 == 0 || d == jobs.size())
                     prog(d, jobs.size(), "İndiriliyor " + d + " / " + jobs.size());
             }));
