@@ -27,16 +27,15 @@ public class Kuro {
     // ---------- tema ----------
     static final Color PANEL = new Color(20, 20, 28), PANEL2 = new Color(30, 30, 42), BORDER = new Color(48, 46, 64),
             FG = new Color(236, 236, 244), MUTED = new Color(140, 140, 160), ACC = new Color(150, 90, 255),
-            ACC2 = new Color(105, 70, 235), RED = new Color(255, 100, 115), GREEN = new Color(120, 220, 140),
-            YELLOW = new Color(240, 200, 100);
+            ACC2 = new Color(105, 70, 235), RED = new Color(255, 100, 115), GREEN = new Color(120, 220, 140);
     static final Path ROOT = Paths.get(System.getProperty("user.home"), ".kuro");
     static final HttpClient HTTP = HttpClient.newBuilder()
             .followRedirects(HttpClient.Redirect.ALWAYS)
             .connectTimeout(java.time.Duration.ofSeconds(20)).build();
     static final String OS = System.getProperty("os.name").toLowerCase().contains("win") ? "windows"
             : System.getProperty("os.name").toLowerCase().contains("mac") ? "osx" : "linux";
-    static final String[] LOADERS = {"Vanilla", "Fabric", "Quilt"};
-    static final String[] MOD_CATEGORIES = {"Tümü", "optimization", "shaders", "library", "audio", "decoration", "adventure", "technology"};
+    static final String[] LOADERS = {"Vanilla", "Fabric"};
+    static final String[] MOD_CATEGORIES = {"Tümü", "optimization", "shaders", "library", "audio"};
 
     // ---------- yardımcılar ----------
     static Color mix(Color a, Color b, float t) {
@@ -90,16 +89,29 @@ public class Kuro {
     static String enc(String s) { return URLEncoder.encode(s, StandardCharsets.UTF_8); }
     static String get(String url) throws Exception {
         return HTTP.send(HttpRequest.newBuilder(URI.create(url))
-                .header("User-Agent", "Kuro-Launcher/2.1").build(),
+                .header("User-Agent", "Kuro-Launcher/3.0").build(),
                 HttpResponse.BodyHandlers.ofString()).body();
     }
-    static void deleteRecursive(Path p) throws IOException {
-        if (Files.isDirectory(p)) {
-            try (Stream<Path> s = Files.list(p)) {
-                for (Path c : s.toList()) deleteRecursive(c);
+    static void download(String url, Path dst, long totalHint, IntConsumer onProgress) throws Exception {
+        if (Files.exists(dst) && Files.size(dst) > 0) { onProgress.accept(100); return; }
+        Files.createDirectories(dst.getParent());
+        Path tmp = Paths.get(dst + ".part");
+        HttpResponse<InputStream> resp = HTTP.send(
+                HttpRequest.newBuilder(URI.create(url))
+                        .header("User-Agent", "Kuro-Launcher/3.0").build(),
+                HttpResponse.BodyHandlers.ofInputStream());
+        long total = resp.headers().firstValueAsLong("Content-Length").orElse(totalHint);
+        try (InputStream in = resp.body(); OutputStream out = Files.newOutputStream(tmp)) {
+            byte[] buf = new byte[16384]; long read = 0; int n;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n); read += n;
+                if (total > 0 && onProgress != null)
+                    onProgress.accept((int) (read * 100 / total));
+                if (Kuro.cancelFlag.get()) { throw new InterruptedException("iptal"); }
             }
         }
-        Files.deleteIfExists(p);
+        Files.move(tmp, dst, StandardCopyOption.REPLACE_EXISTING);
+        if (onProgress != null) onProgress.accept(100);
     }
 
     // ---------- animasyon ----------
@@ -178,7 +190,6 @@ public class Kuro {
         }
     }
 
-    /** Arama kutulu açılır menü. */
     static class KPick extends JComponent {
         String text = "Yükleniyor..."; final List<String> items = new ArrayList<>();
         Consumer<String> on; final Anim hov = new Anim(this::repaint);
@@ -587,11 +598,9 @@ public class Kuro {
         };
         name.addActionListener(e -> go.run());
         KButton enter = fixed(new KButton("Giriş Yap", true, go), 340, 44);
-        KButton ms = fixed(new KButton("Microsoft ile giriş", false, this::startMsLogin), 340, 44);
         card.add(Box.createVerticalStrut(8)); card.add(name);
         card.add(Box.createVerticalStrut(4)); card.add(err);
         card.add(Box.createVerticalStrut(6)); card.add(enter);
-        card.add(Box.createVerticalStrut(10)); card.add(ms);
         center.add(card);
         return center;
     }
@@ -604,15 +613,6 @@ public class Kuro {
 
     void logout() {
         account = null; cfg.remove("last"); saveCfg(); side.user = ""; screen.show(buildLogin());
-    }
-
-    /** Microsoft OAuth2 + XBL + XSTS + Minecraft. Tam akış (client_id gerekir). */
-    void startMsLogin() {
-        JOptionPane.showMessageDialog(frame,
-                "Microsoft girişi için Azure uygulaması client_id gerekir.\n" +
-                "Şu anda placeholder kullanılıyor. Ayarlar > msClientId alanına kendi ID'nizi girin.\n" +
-                "Bu sürüm çevrimdışı girişi tam destekler.",
-                "Microsoft girişi", JOptionPane.INFORMATION_MESSAGE);
     }
 
     // ---------- app ----------
@@ -696,14 +696,6 @@ public class Kuro {
         sl.setMaximumSize(new Dimension(420, 30));
         sl.on = v -> { cfg.put("ram", (long) v); saveCfg(); rl.setText("BELLEK (RAM): " + v + " GB"); };
         b.add(sl); b.add(Box.createVerticalStrut(20));
-
-        b.add(lbl("EK JVM ARGÜMANLARI", 11, true, MUTED)); b.add(Box.createVerticalStrut(8));
-        KField jvm = new KField("örnek: -XX:+UseG1GC"); jvm.setText(cs("jvm", ""));
-        jvm.setAlignmentX(0f); jvm.setMaximumSize(new Dimension(520, 44));
-        jvm.addKeyListener(new KeyAdapter() {
-            public void keyReleased(KeyEvent e) { cfg.put("jvm", jvm.getText()); saveCfg(); }
-        });
-        b.add(jvm); b.add(Box.createVerticalStrut(20));
 
         b.add(lbl("JAVA YOLU (boş = sistem varsayılanı)", 11, true, MUTED)); b.add(Box.createVerticalStrut(8));
         JPanel jr = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0)); jr.setOpaque(false); jr.setAlignmentX(0f);
@@ -814,7 +806,7 @@ public class Kuro {
     void refreshMods() {
         installedList.removeAll();
         if (selLoader == 0) {
-            installedList.add(new Row("Vanilla'da mod çalışmaz", "Fabric veya Quilt seç", new JComponent[0]));
+            installedList.add(new Row("Vanilla'da mod çalışmaz", "Fabric seç", new JComponent[0]));
         } else {
             Path dir = instDir().resolve("mods");
             try (Stream<Path> s = Files.exists(dir) ? Files.list(dir) : Stream.<Path>empty()) {
@@ -943,29 +935,6 @@ public class Kuro {
         });
     }
 
-    /** İlerleme bildirimli indirme. onProgress 0-100 arası. */
-    static void download(String url, Path dst, long totalHint, IntConsumer onProgress) throws Exception {
-        if (Files.exists(dst) && Files.size(dst) > 0) { onProgress.accept(100); return; }
-        Files.createDirectories(dst.getParent());
-        Path tmp = Paths.get(dst + ".part");
-        HttpResponse<InputStream> resp = HTTP.send(
-                HttpRequest.newBuilder(URI.create(url))
-                        .header("User-Agent", "Kuro-Launcher/2.1").build(),
-                HttpResponse.BodyHandlers.ofInputStream());
-        long total = resp.headers().firstValueAsLong("Content-Length").orElse(totalHint);
-        try (InputStream in = resp.body(); OutputStream out = Files.newOutputStream(tmp)) {
-            byte[] buf = new byte[16384]; long read = 0; int n;
-            while ((n = in.read(buf)) > 0) {
-                out.write(buf, 0, n); read += n;
-                if (total > 0 && onProgress != null)
-                    onProgress.accept((int) (read * 100 / total));
-                if (Kuro.cancelFlag.get()) { throw new InterruptedException("iptal"); }
-            }
-        }
-        Files.move(tmp, dst, StandardCopyOption.REPLACE_EXISTING);
-        if (onProgress != null) onProgress.accept(100);
-    }
-
     // ---------- loader sürümleri ----------
     void loadLoaderVersions() {
         new Thread(() -> {
@@ -977,9 +946,7 @@ public class Kuro {
                     });
                     return;
                 }
-                String base = selLoader == 1
-                        ? "https://meta.fabricmc.net/v2/versions/loader"
-                        : "https://meta.quiltmc.org/v3/versions/loader";
+                String base = "https://meta.fabricmc.net/v2/versions/loader";
                 List<Object> arr = Json.arr(Json.parse(get(base)));
                 List<String> vers = new ArrayList<>();
                 for (Object o : arr) vers.add(String.valueOf(Json.obj(o).get("version")));
@@ -1074,9 +1041,7 @@ public class Kuro {
             collectArgs(meta, jvmExtra, gameExtra);
 
             if (selLoader > 0) {
-                String base = selLoader == 1
-                        ? "https://meta.fabricmc.net/v2"
-                        : "https://meta.quiltmc.org/v3";
+                String base = "https://meta.fabricmc.net/v2";
                 log(LOADERS[selLoader] + " profili indiriliyor...");
                 List<Object> loaders = Json.arr(Json.parse(get(base + "/versions/loader/" + mc)));
                 if (loaders.isEmpty()) throw new Exception("Bu sürüm için " + LOADERS[selLoader] + " yok");
@@ -1099,6 +1064,7 @@ public class Kuro {
 
             List<Path> cp = new ArrayList<>();
             List<String[]> jobs = new ArrayList<>();
+            Set<String> seenLibs = new HashSet<>();
             for (Map<String, Object> lib : libs) {
                 if (!allowed(lib.get("rules"))) continue;
                 Map<String, Object> dl = lib.get("downloads") == null ? null : Json.obj(lib.get("downloads"));
@@ -1111,6 +1077,12 @@ public class Kuro {
                     rel = c[0].replace('.', '/') + "/" + c[1] + "/" + c[2] + "/" + c[1] + "-" + c[2] + ".jar";
                     url = lib.get("url") + rel;
                 } else continue;
+                
+                // ASM ÇAKIŞMASINI ÖNLEYEN SİHİRLİ KOD
+                String group = rel.split("/")[0] + ":" + rel.split("/")[1] + ":" + rel.split("/")[2];
+                if (seenLibs.contains(group)) continue;
+                seenLibs.add(group);
+
                 Path dst = ROOT.resolve("libraries").resolve(rel);
                 jobs.add(new String[]{url, dst.toString()});
                 cp.add(dst);
@@ -1164,6 +1136,19 @@ public class Kuro {
             for (Path p : new LinkedHashSet<>(cp)) cps.append(p).append(File.pathSeparator);
             Path game = instDir(); Files.createDirectories(game.resolve("mods"));
 
+            // FABRIC SEÇİLDİYSE KUROCLIENT MODUNU KUR
+            if (selLoader > 0) {
+                try {
+                    String clientModUrl = "https://github.com/senin-kullanici-adin/KuroClient/releases/download/v1.0/kuroclient-1.0.jar";
+                    Path modPath = game.resolve("mods").resolve("kuroclient-1.0.jar");
+                    log("KuroClient (Sağ Shift Menüsü) indiriliyor...");
+                    download(clientModUrl, modPath, 0, p -> { });
+                    log("KuroClient başarıyla yüklendi.");
+                } catch (Exception e) {
+                    log("KuroClient yüklenemedi, oyun modsuz başlayacak: " + e.getMessage());
+                }
+            }
+
             Map<String, String> vars = new HashMap<>();
             vars.put("auth_player_name", name); vars.put("version_name", mc);
             vars.put("game_directory", game.toString());
@@ -1173,7 +1158,7 @@ public class Kuro {
             vars.put("auth_access_token", "0"); vars.put("clientid", "0"); vars.put("auth_xuid", "0");
             vars.put("user_type", "legacy"); vars.put("version_type", "Kuro");
             vars.put("natives_directory", ROOT.resolve("natives").toString());
-            vars.put("launcher_name", "Kuro"); vars.put("launcher_version", "2.1");
+            vars.put("launcher_name", "Kuro"); vars.put("launcher_version", "3.0");
             vars.put("classpath", cps.toString());
 
             String javaBin = cs("javaPath", "");
