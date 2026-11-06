@@ -21,20 +21,17 @@ import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-/** Kuro Launcher — Ultimate Sürüm. */
 public class Kuro {
-    // ---------- premium tema ----------
     static final Color PANEL = new Color(15, 15, 22), PANEL2 = new Color(25, 25, 35), BORDER = new Color(50, 45, 65),
             FG = new Color(240, 240, 250), MUTED = new Color(150, 150, 170), ACC = new Color(165, 100, 255),
-            ACC2 = new Color(110, 70, 255), RED = new Color(255, 90, 110), GREEN = new Color(100, 230, 150);
+            ACC2 = new Color(110, 70, 255), RED = new Color(255, 90, 110);
     static final Path ROOT = Paths.get(System.getProperty("user.home"), ".kuro");
-    static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).connectTimeout(java.time.Duration.ofSeconds(20)).build();
+    static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).build();
     static final String OS = System.getProperty("os.name").toLowerCase().contains("win") ? "windows"
             : System.getProperty("os.name").toLowerCase().contains("mac") ? "osx" : "linux";
     static final String[] LOADERS = {"Vanilla", "Fabric"};
-    static final String[] MOD_CATEGORIES = {"Tümü", "optimization", "shaders", "library", "audio"};
+    static final String[] MOD_CATEGORIES = {"Tümü", "optimization", "shaders", "library"};
 
-    // ---------- yardımcılar ----------
     static Color mix(Color a, Color b, float t) { t = Math.max(0, Math.min(1, t)); return new Color((int) (a.getRed() + (b.getRed() - a.getRed()) * t), (int) (a.getGreen() + (b.getGreen() - a.getGreen()) * t), (int) (a.getBlue() + (b.getBlue() - a.getBlue()) * t), (int) (a.getAlpha() + (b.getAlpha() - a.getAlpha()) * t)); }
     static Graphics2D aa(Graphics g) { Graphics2D g2 = (Graphics2D) g; g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON); g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON); g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE); return g2; }
     static Font font(int style, float size) { return new Font("Segoe UI", style, 12).deriveFont(size); }
@@ -45,191 +42,90 @@ public class Kuro {
     static JPanel vbox() { JPanel p = new JPanel(); p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS)); p.setOpaque(false); return p; }
     static JScrollPane listScroll(JPanel list) { JPanel wrap = new JPanel(new BorderLayout()); wrap.setOpaque(false); wrap.add(list, BorderLayout.NORTH); JScrollPane sp = new JScrollPane(wrap); darkScroll(sp); return sp; }
     static String enc(String s) { return URLEncoder.encode(s, StandardCharsets.UTF_8); }
-    static String get(String url) throws Exception { return HTTP.send(HttpRequest.newBuilder(URI.create(url)).header("User-Agent", "Kuro-Launcher/4.0").build(), HttpResponse.BodyHandlers.ofString()).body(); }
+    static String get(String url) throws Exception { return HTTP.send(HttpRequest.newBuilder(URI.create(url)).header("User-Agent", "Kuro-Launcher/5.0").build(), HttpResponse.BodyHandlers.ofString()).body(); }
     static void deleteRecursive(Path p) throws IOException { if (Files.isDirectory(p)) { try (Stream<Path> s = Files.list(p)) { for (Path c : s.toList()) deleteRecursive(c); } } Files.deleteIfExists(p); }
     static void download(String url, Path dst, long totalHint, IntConsumer onProgress) throws Exception {
         if (Files.exists(dst) && Files.size(dst) > 0) { onProgress.accept(100); return; }
         Files.createDirectories(dst.getParent());
         Path tmp = Paths.get(dst + ".part");
-        HttpResponse<InputStream> resp = HTTP.send(HttpRequest.newBuilder(URI.create(url)).header("User-Agent", "Kuro-Launcher/4.0").build(), HttpResponse.BodyHandlers.ofInputStream());
+        HttpResponse<InputStream> resp = HTTP.send(HttpRequest.newBuilder(URI.create(url)).header("User-Agent", "Kuro-Launcher/5.0").build(), HttpResponse.BodyHandlers.ofInputStream());
         long total = resp.headers().firstValueAsLong("Content-Length").orElse(totalHint);
-        try (InputStream in = resp.body(); OutputStream out = Files.newOutputStream(tmp)) {
-            byte[] buf = new byte[16384]; long read = 0; int n;
-            while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); read += n; if (total > 0 && onProgress != null) onProgress.accept((int) (read * 100 / total)); if (Kuro.cancelFlag.get()) throw new InterruptedException("iptal"); }
-        }
+        try (InputStream in = resp.body(); OutputStream out = Files.newOutputStream(tmp)) { byte[] buf = new byte[16384]; long read = 0; int n; while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); read += n; if (total > 0 && onProgress != null) onProgress.accept((int) (read * 100 / total)); if (Kuro.cancelFlag.get()) throw new InterruptedException("iptal"); } }
         Files.move(tmp, dst, StandardCopyOption.REPLACE_EXISTING); if (onProgress != null) onProgress.accept(100);
     }
 
-    // ---------- arayüz bileşenleri (KButton, KField vs. tam ve eksiksiz) ----------
-    static class Anim {
-        float v, t; final Timer tm;
-        Anim(Runnable r) { tm = new Timer(15, e -> { v += (t - v) * 0.2f; if (Math.abs(t - v) < 0.003f) { v = t; ((Timer) e.getSource()).stop(); } r.run(); }); }
-        void to(float x) { t = x; if (!tm.isRunning()) tm.start(); }
-        void set(float x) { v = t = x; }
-    }
-
+    // ---------- Arayüz Bileşenleri (Kısaltıldı ama işlevsel) ----------
+    static class Anim { float v, t; final Timer tm; Anim(Runnable r) { tm = new Timer(15, e -> { v += (t - v) * 0.2f; if (Math.abs(t - v) < 0.003f) { v = t; ((Timer) e.getSource()).stop(); } r.run(); }); } void to(float x) { t = x; if (!tm.isRunning()) tm.start(); } void set(float x) { v = t = x; } }
     static class KButton extends JComponent {
         String text; boolean accent, down; Runnable click; final Anim hov = new Anim(this::repaint);
-        KButton(String t, boolean accent, Runnable r) {
-            text = t; this.accent = accent; click = r; setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); setPreferredSize(new Dimension(130, 40));
-            addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) { if (isEnabled()) hov.to(1); }
-                public void mouseExited(MouseEvent e) { hov.to(0); down = false; repaint(); }
-                public void mousePressed(MouseEvent e) { if (isEnabled()) { down = true; repaint(); } }
-                public void mouseReleased(MouseEvent e) { boolean in = down && contains(e.getPoint()); down = false; repaint(); if (in && isEnabled() && click != null) click.run(); }
-            });
-        }
+        KButton(String t, boolean accent, Runnable r) { text = t; this.accent = accent; click = r; setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); setPreferredSize(new Dimension(130, 40)); addMouseListener(new MouseAdapter() { public void mouseEntered(MouseEvent e) { if (isEnabled()) hov.to(1); } public void mouseExited(MouseEvent e) { hov.to(0); down = false; repaint(); } public void mousePressed(MouseEvent e) { if (isEnabled()) { down = true; repaint(); } } public void mouseReleased(MouseEvent e) { boolean in = down && contains(e.getPoint()); down = false; repaint(); if (in && isEnabled() && click != null) click.run(); } }); }
         public void setEnabled(boolean b) { super.setEnabled(b); setCursor(Cursor.getPredefinedCursor(b ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR)); repaint(); }
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); float sc = down ? 0.97f : 1f;
-            g.translate(w * (1 - sc) / 2, h * (1 - sc) / 2); g.scale(sc, sc); Shape s = new RoundRectangle2D.Float(0, 0, w, h, 14, 14);
-            if (!isEnabled()) { g.setColor(new Color(34, 34, 44)); g.fill(s); }
-            else if (accent) { g.setPaint(new GradientPaint(0, 0, mix(ACC, new Color(200, 150, 255), hov.v), w, h, mix(ACC2, new Color(150, 100, 255), hov.v))); g.fill(s); }
-            else { g.setColor(mix(PANEL2, new Color(45, 42, 60), hov.v)); g.fill(s); g.setColor(BORDER); g.setStroke(new BasicStroke(1f)); g.draw(s); }
-            g.setColor(!isEnabled() ? MUTED : accent ? Color.WHITE : FG); g.setFont(font(Font.BOLD, 14)); drawCentered(g, text, w, h);
-        }
+        protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); float sc = down ? 0.97f : 1f; g.translate(w * (1 - sc) / 2, h * (1 - sc) / 2); g.scale(sc, sc); Shape s = new RoundRectangle2D.Float(0, 0, w, h, 14, 14); if (!isEnabled()) { g.setColor(new Color(34, 34, 44)); g.fill(s); } else if (accent) { g.setPaint(new GradientPaint(0, 0, mix(ACC, new Color(200, 150, 255), hov.v), w, h, mix(ACC2, new Color(150, 100, 255), hov.v))); g.fill(s); } else { g.setColor(mix(PANEL2, new Color(45, 42, 60), hov.v)); g.fill(s); g.setColor(BORDER); g.setStroke(new BasicStroke(1f)); g.draw(s); } g.setColor(!isEnabled() ? MUTED : accent ? Color.WHITE : FG); g.setFont(font(Font.BOLD, 14)); drawCentered(g, text, w, h); }
     }
-
     static class KField extends JTextField {
         final String hint; final Anim foc = new Anim(this::repaint);
-        KField(String hint) {
-            this.hint = hint; setOpaque(false); setForeground(FG); setCaretColor(ACC); setSelectionColor(new Color(150, 90, 255, 110)); setFont(font(Font.PLAIN, 14)); setBorder(new EmptyBorder(0, 14, 0, 14)); setPreferredSize(new Dimension(200, 42));
-            addFocusListener(new FocusAdapter() { public void focusGained(FocusEvent e) { foc.to(1); } public void focusLost(FocusEvent e) { foc.to(0); } });
-        }
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = aa(g0); Shape s = new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1, 14, 14);
-            g.setColor(PANEL2); g.fill(s); g.setColor(mix(BORDER, ACC, foc.v)); g.setStroke(new BasicStroke(1.4f)); g.draw(s);
-            super.paintComponent(g0);
-            if (getText().isEmpty()) { g.setColor(MUTED); g.setFont(getFont()); FontMetrics fm = g.getFontMetrics(); g.drawString(hint, 14, (getHeight() + fm.getAscent() - fm.getDescent()) / 2); }
-        }
+        KField(String hint) { this.hint = hint; setOpaque(false); setForeground(FG); setCaretColor(ACC); setSelectionColor(new Color(150, 90, 255, 110)); setFont(font(Font.PLAIN, 14)); setBorder(new EmptyBorder(0, 14, 0, 14)); setPreferredSize(new Dimension(200, 42)); addFocusListener(new FocusAdapter() { public void focusGained(FocusEvent e) { foc.to(1); } public void focusLost(FocusEvent e) { foc.to(0); } }); }
+        protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); Shape s = new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1, 14, 14); g.setColor(PANEL2); g.fill(s); g.setColor(mix(BORDER, ACC, foc.v)); g.setStroke(new BasicStroke(1.4f)); g.draw(s); super.paintComponent(g0); if (getText().isEmpty()) { g.setColor(MUTED); g.setFont(getFont()); FontMetrics fm = g.getFontMetrics(); g.drawString(hint, 14, (getHeight() + fm.getAscent() - fm.getDescent()) / 2); } }
     }
-
     static class KPick extends JComponent {
-        String text = "Yükleniyor..."; final List<String> items = new ArrayList<>();
-        Consumer<String> on; final Anim hov = new Anim(this::repaint);
+        String text = "Yükleniyor..."; final List<String> items = new ArrayList<>(); Consumer<String> on; final Anim hov = new Anim(this::repaint);
         KPick() { setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); addMouseListener(new MouseAdapter() { public void mouseEntered(MouseEvent e) { hov.to(1); } public void mouseExited(MouseEvent e) { hov.to(0); } public void mousePressed(MouseEvent e) { popup(); } }); }
-        void popup() {
-            if (items.isEmpty()) return;
-            JPopupMenu pm = new JPopupMenu(); pm.setBorder(BorderFactory.createLineBorder(BORDER)); pm.setBackground(PANEL2);
-            JPanel wrap = new JPanel(new BorderLayout()); wrap.setBackground(PANEL2);
-            KField search = new KField("Ara..."); search.setPreferredSize(new Dimension(getWidth() - 8, 36)); wrap.add(search, BorderLayout.NORTH);
-            DefaultListModel<String> model = new DefaultListModel<>(); for (String it : items) model.addElement(it);
-            JList<String> list = new JList<>(model); list.setBackground(PANEL2); list.setForeground(FG); list.setSelectionBackground(ACC2); list.setSelectionForeground(Color.WHITE); list.setFixedCellHeight(30); list.setFont(font(Font.PLAIN, 14));
-            list.setCellRenderer(new DefaultListCellRenderer() { public Component getListCellRendererComponent(JList<?> l, Object v, int i, boolean sel, boolean f) { JLabel c = (JLabel) super.getListCellRendererComponent(l, v, i, sel, f); c.setBorder(new EmptyBorder(0, 12, 0, 12)); return c; } });
-            search.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() { void ref() { String q = search.getText().toLowerCase(); model.clear(); for (String it : items) if (it.toLowerCase().contains(q)) model.addElement(it); } public void insertUpdate(javax.swing.event.DocumentEvent e) { ref(); } public void removeUpdate(javax.swing.event.DocumentEvent e) { ref(); } public void changedUpdate(javax.swing.event.DocumentEvent e) { ref(); } });
-            JScrollPane sp = new JScrollPane(list); darkScroll(sp); sp.setOpaque(true); sp.getViewport().setOpaque(true); sp.getViewport().setBackground(PANEL2); sp.setPreferredSize(new Dimension(getWidth(), Math.min(280, items.size() * 30 + 4))); wrap.add(sp, BorderLayout.CENTER); pm.add(wrap);
-            list.addMouseListener(new MouseAdapter() { public void mouseReleased(MouseEvent e) { String v = list.getSelectedValue(); pm.setVisible(false); if (v != null) { text = v; repaint(); if (on != null) on.accept(v); } } });
-            pm.show(this, 0, getHeight() + 4); SwingUtilities.invokeLater(search::requestFocusInWindow);
-        }
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = aa(g0); int w = getWidth(), h = getHeight();
-            g.setColor(mix(PANEL2, new Color(42, 40, 58), hov.v)); g.fill(new RoundRectangle2D.Float(0, 0, w, h, 14, 14)); g.setColor(BORDER); g.draw(new RoundRectangle2D.Float(0.5f, 0.5f, w - 1, h - 1, 14, 14));
-            g.setColor(FG); g.setFont(font(Font.PLAIN, 14)); FontMetrics fm = g.getFontMetrics(); String shown = text; while (fm.stringWidth(shown) > w - 40 && shown.length() > 4) shown = shown.substring(0, shown.length() - 4) + "..."; g.drawString(shown, 14, (h + fm.getAscent() - fm.getDescent()) / 2);
-            g.setColor(MUTED); g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)); g.drawPolyline(new int[]{w - 26, w - 20, w - 14}, new int[]{h / 2 - 2, h / 2 + 3, h / 2 - 2}, 3);
-        }
+        void popup() { if (items.isEmpty()) return; JPopupMenu pm = new JPopupMenu(); pm.setBorder(BorderFactory.createLineBorder(BORDER)); pm.setBackground(PANEL2); JPanel wrap = new JPanel(new BorderLayout()); wrap.setBackground(PANEL2); KField search = new KField("Ara..."); search.setPreferredSize(new Dimension(getWidth() - 8, 36)); wrap.add(search, BorderLayout.NORTH); DefaultListModel<String> model = new DefaultListModel<>(); for (String it : items) model.addElement(it); JList<String> list = new JList<>(model); list.setBackground(PANEL2); list.setForeground(FG); list.setSelectionBackground(ACC2); list.setSelectionForeground(Color.WHITE); list.setFixedCellHeight(30); list.setFont(font(Font.PLAIN, 14)); list.setCellRenderer(new DefaultListCellRenderer() { public Component getListCellRendererComponent(JList<?> l, Object v, int i, boolean sel, boolean f) { JLabel c = (JLabel) super.getListCellRendererComponent(l, v, i, sel, f); c.setBorder(new EmptyBorder(0, 12, 0, 12)); return c; } }); search.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() { void ref() { String q = search.getText().toLowerCase(); model.clear(); for (String it : items) if (it.toLowerCase().contains(q)) model.addElement(it); } public void insertUpdate(javax.swing.event.DocumentEvent e) { ref(); } public void removeUpdate(javax.swing.event.DocumentEvent e) { ref(); } public void changedUpdate(javax.swing.event.DocumentEvent e) { ref(); } }); JScrollPane sp = new JScrollPane(list); darkScroll(sp); sp.setOpaque(true); sp.getViewport().setOpaque(true); sp.getViewport().setBackground(PANEL2); sp.setPreferredSize(new Dimension(getWidth(), Math.min(280, items.size() * 30 + 4))); wrap.add(sp, BorderLayout.CENTER); pm.add(wrap); list.addMouseListener(new MouseAdapter() { public void mouseReleased(MouseEvent e) { String v = list.getSelectedValue(); pm.setVisible(false); if (v != null) { text = v; repaint(); if (on != null) on.accept(v); } } }); pm.show(this, 0, getHeight() + 4); SwingUtilities.invokeLater(search::requestFocusInWindow); }
+        protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); g.setColor(mix(PANEL2, new Color(42, 40, 58), hov.v)); g.fill(new RoundRectangle2D.Float(0, 0, w, h, 14, 14)); g.setColor(BORDER); g.draw(new RoundRectangle2D.Float(0.5f, 0.5f, w - 1, h - 1, 14, 14)); g.setColor(FG); g.setFont(font(Font.PLAIN, 14)); FontMetrics fm = g.getFontMetrics(); String shown = text; while (fm.stringWidth(shown) > w - 40 && shown.length() > 4) shown = shown.substring(0, shown.length() - 4) + "..."; g.drawString(shown, 14, (h + fm.getAscent() - fm.getDescent()) / 2); g.setColor(MUTED); g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)); g.drawPolyline(new int[]{w - 26, w - 20, w - 14}, new int[]{h / 2 - 2, h / 2 + 3, h / 2 - 2}, 3); }
     }
-
     static class Seg extends JComponent {
         final String[] opts; int sel; IntConsumer on; final Anim pos = new Anim(this::repaint);
         Seg(String... o) { opts = o; setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); addMouseListener(new MouseAdapter() { public void mousePressed(MouseEvent e) { set(Math.min(opts.length - 1, e.getX() * opts.length / Math.max(1, getWidth())), true); } }); }
         void set(int i, boolean fire) { sel = i; pos.to(i); if (fire && on != null) on.accept(i); }
         void init(int i) { sel = i; pos.set(i); repaint(); }
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); float sw = w / (float) opts.length;
-            g.setColor(PANEL2); g.fill(new RoundRectangle2D.Float(0, 0, w, h, 14, 14)); g.setPaint(new GradientPaint(0, 0, ACC, w, h, ACC2)); g.fill(new RoundRectangle2D.Float(4 + pos.v * sw, 4, sw - 8, h - 8, 11, 11)); g.setFont(font(Font.BOLD, 14));
-            for (int i = 0; i < opts.length; i++) { float d = Math.min(1f, Math.abs(pos.v - i)); g.setColor(mix(Color.WHITE, MUTED, d)); FontMetrics fm = g.getFontMetrics(); g.drawString(opts[i], i * sw + (sw - fm.stringWidth(opts[i])) / 2, (h + fm.getAscent() - fm.getDescent()) / 2); }
-        }
+        protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); float sw = w / (float) opts.length; g.setColor(PANEL2); g.fill(new RoundRectangle2D.Float(0, 0, w, h, 14, 14)); g.setPaint(new GradientPaint(0, 0, ACC, w, h, ACC2)); g.fill(new RoundRectangle2D.Float(4 + pos.v * sw, 4, sw - 8, h - 8, 11, 11)); g.setFont(font(Font.BOLD, 14)); for (int i = 0; i < opts.length; i++) { float d = Math.min(1f, Math.abs(pos.v - i)); g.setColor(mix(Color.WHITE, MUTED, d)); FontMetrics fm = g.getFontMetrics(); g.drawString(opts[i], i * sw + (sw - fm.stringWidth(opts[i])) / 2, (h + fm.getAscent() - fm.getDescent()) / 2); } }
     }
-
     static class KProgress extends JComponent {
-        final Anim a = new Anim(this::repaint);
-        KProgress() { setPreferredSize(new Dimension(100, 8)); }
-        void set(float v) { a.to(v); }
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); g.setColor(PANEL2); g.fill(new RoundRectangle2D.Float(0, 0, w, h, h, h));
-            if (a.v > 0.001f) { g.setPaint(new GradientPaint(0, 0, ACC2, w, 0, new Color(200, 140, 255))); g.fill(new RoundRectangle2D.Float(0, 0, Math.max(h, w * a.v), h, h, h)); }
-        }
+        final Anim a = new Anim(this::repaint); KProgress() { setPreferredSize(new Dimension(100, 8)); } void set(float v) { a.to(v); }
+        protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); g.setColor(PANEL2); g.fill(new RoundRectangle2D.Float(0, 0, w, h, h, h)); if (a.v > 0.001f) { g.setPaint(new GradientPaint(0, 0, ACC2, w, 0, new Color(200, 140, 255))); g.fill(new RoundRectangle2D.Float(0, 0, Math.max(h, w * a.v), h, h, h)); } }
     }
-
     static class KSlider extends JComponent {
         final int min, max; int val; IntConsumer on;
         KSlider(int min, int max, int val) { this.min = min; this.max = max; this.val = val; setPreferredSize(new Dimension(360, 30)); setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); MouseAdapter m = new MouseAdapter() { public void mousePressed(MouseEvent e) { fromX(e.getX()); } public void mouseDragged(MouseEvent e) { fromX(e.getX()); } }; addMouseListener(m); addMouseMotionListener(m); }
         void fromX(int x) { double f = Math.max(0, Math.min(1, (x - 10) / (double) Math.max(1, getWidth() - 20))); int nv = min + (int) Math.round(f * (max - min)); if (nv != val) { val = nv; repaint(); if (on != null) on.accept(val); } }
         protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); float x = 10 + (w - 20) * (val - min) / (float) (max - min); g.setColor(PANEL2); g.fill(new RoundRectangle2D.Float(10, h / 2f - 3, w - 20, 6, 6, 6)); g.setPaint(new GradientPaint(0, 0, ACC2, w, 0, ACC)); g.fill(new RoundRectangle2D.Float(10, h / 2f - 3, x - 10, 6, 6, 6)); g.setColor(Color.WHITE); g.fill(new Ellipse2D.Float(x - 9, h / 2f - 9, 18, 18)); g.setColor(ACC); g.setStroke(new BasicStroke(2.5f)); g.draw(new Ellipse2D.Float(x - 9, h / 2f - 9, 18, 18)); }
     }
-
     static class Row extends JPanel {
         final Anim hov = new Anim(this::repaint);
-        Row(String title, String sub, JComponent... right) {
-            super(new BorderLayout(10, 0)); setOpaque(false); setBorder(new EmptyBorder(6, 14, 6, 10)); setPreferredSize(new Dimension(10, 58)); setMaximumSize(new Dimension(Integer.MAX_VALUE, 58)); setAlignmentX(0f);
-            JPanel l = new JPanel(new GridLayout(sub == null ? 1 : 2, 1)); l.setOpaque(false); l.add(lbl(title, 14, true, FG)); if (sub != null) l.add(lbl(sub, 12, false, MUTED)); add(l, BorderLayout.CENTER);
-            if (right.length > 0) { JPanel r = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 6)); r.setOpaque(false); for (JComponent c : right) r.add(c); add(r, BorderLayout.EAST); }
-            addMouseListener(new MouseAdapter() { public void mouseEntered(MouseEvent e) { hov.to(1); } public void mouseExited(MouseEvent e) { if (!contains(e.getPoint())) hov.to(0); } });
-        }
+        Row(String title, String sub, JComponent... right) { super(new BorderLayout(10, 0)); setOpaque(false); setBorder(new EmptyBorder(6, 14, 6, 10)); setPreferredSize(new Dimension(10, 58)); setMaximumSize(new Dimension(Integer.MAX_VALUE, 58)); setAlignmentX(0f); JPanel l = new JPanel(new GridLayout(sub == null ? 1 : 2, 1)); l.setOpaque(false); l.add(lbl(title, 14, true, FG)); if (sub != null) l.add(lbl(sub, 12, false, MUTED)); add(l, BorderLayout.CENTER); if (right.length > 0) { JPanel r = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 6)); r.setOpaque(false); for (JComponent c : right) r.add(c); add(r, BorderLayout.EAST); } addMouseListener(new MouseAdapter() { public void mouseEntered(MouseEvent e) { hov.to(1); } public void mouseExited(MouseEvent e) { if (!contains(e.getPoint())) hov.to(0); } }); }
         protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); g.setColor(mix(PANEL, PANEL2, hov.v)); g.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 14, 14)); }
     }
-
     static class Pager extends JPanel {
-        BufferedImage snap; final Anim fade = new Anim(this::repaint);
-        Pager() { super(new BorderLayout()); setOpaque(false); }
+        BufferedImage snap; final Anim fade = new Anim(this::repaint); Pager() { super(new BorderLayout()); setOpaque(false); }
         void show(JComponent c) { if (getWidth() > 0 && getHeight() > 0 && getComponentCount() > 0) { snap = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB); Graphics2D g = snap.createGraphics(); paintChildren(g); g.dispose(); fade.set(1); fade.to(0); } removeAll(); add(c, BorderLayout.CENTER); revalidate(); repaint(); }
         public void paint(Graphics g0) { super.paint(g0); if (snap != null) { if (fade.v > 0.01f) { Graphics2D g = (Graphics2D) g0.create(); g.setComposite(AlphaComposite.SrcOver.derive(Math.min(1f, Math.max(0f, fade.v)))); g.drawImage(snap, 0, 0, null); g.dispose(); } else snap = null; } }
     }
-
     static class Bg extends JPanel {
-        final long t0 = System.nanoTime();
-        Bg() { super(new BorderLayout()); setOpaque(true); new Timer(33, e -> repaint()).start(); }
+        final long t0 = System.nanoTime(); Bg() { super(new BorderLayout()); setOpaque(true); new Timer(33, e -> repaint()).start(); }
         void blob(Graphics2D g, double x, double y, float r, Color c) { g.setPaint(new RadialGradientPaint(new Point2D.Double(x, y), r, new float[]{0f, 1f}, new Color[]{c, new Color(c.getRed(), c.getGreen(), c.getBlue(), 0)})); g.fill(new Rectangle2D.Double(x - r, y - r, 2 * r, 2 * r)); }
         protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); double t = (System.nanoTime() - t0) / 1e9; g.setPaint(new GradientPaint(0, 0, new Color(10, 8, 15), 0, h, new Color(5, 5, 8))); g.fillRect(0, 0, w, h); blob(g, w * (0.22 + 0.12 * Math.sin(t * 0.4)), h * (0.18 + 0.1 * Math.cos(t * 0.3)), 460, new Color(130, 75, 255, 62)); blob(g, w * (0.82 + 0.1 * Math.cos(t * 0.35)), h * (0.88 + 0.08 * Math.sin(t * 0.5)), 520, new Color(70, 60, 210, 48)); }
     }
-
     static class TitleBar extends JComponent {
-        final JFrame f; int hov = -1; Point press;
-        TitleBar(JFrame f) { this.f = f; setPreferredSize(new Dimension(0, 40)); MouseAdapter m = new MouseAdapter() { public void mousePressed(MouseEvent e) { press = e.getPoint(); int b = btn(e.getX()); if (b == 1) f.setState(Frame.ICONIFIED); else if (b == 2) System.exit(0); } public void mouseDragged(MouseEvent e) { if (press != null && btn(press.x) < 0) { Point p = e.getLocationOnScreen(); f.setLocation(p.x - press.x, p.y - press.y); } } public void mouseMoved(MouseEvent e) { hov = btn(e.getX()); repaint(); } public void mouseExited(MouseEvent e) { hov = -1; repaint(); } }; addMouseListener(m); addMouseMotionListener(m); }
+        final JFrame f; int hov = -1; Point press; TitleBar(JFrame f) { this.f = f; setPreferredSize(new Dimension(0, 40)); MouseAdapter m = new MouseAdapter() { public void mousePressed(MouseEvent e) { press = e.getPoint(); int b = btn(e.getX()); if (b == 1) f.setState(Frame.ICONIFIED); else if (b == 2) System.exit(0); } public void mouseDragged(MouseEvent e) { if (press != null && btn(press.x) < 0) { Point p = e.getLocationOnScreen(); f.setLocation(p.x - press.x, p.y - press.y); } } public void mouseMoved(MouseEvent e) { hov = btn(e.getX()); repaint(); } public void mouseExited(MouseEvent e) { hov = -1; repaint(); } }; addMouseListener(m); addMouseMotionListener(m); }
         int btn(int x) { int w = getWidth(); return x >= w - 46 ? 2 : x >= w - 92 ? 1 : -1; }
         protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); g.setColor(MUTED); g.setFont(font(Font.BOLD, 12)); g.drawString("KURO LAUNCHER", 18, 25); if (hov == 2) { g.setColor(new Color(255, 80, 90, 200)); g.fillRect(w - 46, 0, 46, h); } else if (hov == 1) { g.setColor(new Color(255, 255, 255, 25)); g.fillRect(w - 92, 0, 46, h); } g.setColor(FG); g.setStroke(new BasicStroke(1.4f)); g.drawLine(w - 76, 20, w - 62, 20); g.drawLine(w - 30, 14, w - 16, 26); g.drawLine(w - 30, 26, w - 16, 14); }
     }
-
     static class Sidebar extends JComponent {
-        final String[] items = {"Oyna", "Modlar", "Ayarlar"}; int sel = 0, hover = -1; String user = "";
-        final Anim pos = new Anim(this::repaint); IntConsumer on; Runnable logout;
-        Sidebar() {
-            setPreferredSize(new Dimension(230, 0)); setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            addMouseListener(new MouseAdapter() { public void mousePressed(MouseEvent e) { int i = idx(e.getY()); if (i >= 0) select(i); else if (e.getY() > getHeight() - 84 && logout != null) logout.run(); } public void mouseExited(MouseEvent e) { hover = -1; repaint(); } });
-            addMouseMotionListener(new MouseMotionAdapter() { public void mouseMoved(MouseEvent e) { hover = idx(e.getY()); repaint(); } });
-        }
+        final String[] items = {"Oyna", "Modlar", "Ayarlar"}; int sel = 0, hover = -1; String user = ""; final Anim pos = new Anim(this::repaint); IntConsumer on; Runnable logout;
+        Sidebar() { setPreferredSize(new Dimension(230, 0)); setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); addMouseListener(new MouseAdapter() { public void mousePressed(MouseEvent e) { int i = idx(e.getY()); if (i >= 0) select(i); else if (e.getY() > getHeight() - 84 && logout != null) logout.run(); } public void mouseExited(MouseEvent e) { hover = -1; repaint(); } }); addMouseMotionListener(new MouseMotionAdapter() { public void mouseMoved(MouseEvent e) { hover = idx(e.getY()); repaint(); } }); }
         int idx(int y) { int i = (y - 110) / 52; return (y >= 110 && i < items.length && (y - 110) % 52 < 46) ? i : -1; }
         void select(int i) { sel = i; pos.to(i); if (on != null) on.accept(i); }
-        protected void paintComponent(Graphics g0) {
-            Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); g.setColor(new Color(255, 255, 255, 8)); g.fillRect(0, 0, w, h); g.setColor(new Color(255, 255, 255, 14)); g.fillRect(w - 1, 0, 1, h);
-            g.setFont(font(Font.BOLD, 34)); g.setPaint(new GradientPaint(0, 30, new Color(200, 150, 255), 120, 70, ACC)); g.drawString("KURO", 28, 66);
-            g.setFont(font(Font.BOLD, 10)); g.setColor(MUTED); g.drawString("L A U N C H E R", 30, 84);
-            g.setPaint(new GradientPaint(16, 0, new Color(150, 90, 255, 70), w - 16, 0, new Color(105, 70, 235, 25))); g.fill(new RoundRectangle2D.Float(16, 110 + pos.v * 52, w - 32, 46, 14, 14));
-            g.setColor(ACC); g.fill(new RoundRectangle2D.Float(16, 120 + pos.v * 52, 4, 26, 4, 4)); g.setFont(font(Font.BOLD, 15));
-            for (int i = 0; i < items.length; i++) { float d = Math.min(1f, Math.abs(pos.v - i)); Color c = mix(FG, hover == i ? new Color(200, 200, 220) : MUTED, d); g.setColor(c); g.drawString(items[i], 44, 110 + i * 52 + 29); }
-            g.setColor(new Color(255, 255, 255, 14)); g.fillRect(16, h - 84, w - 32, 1);
-            g.setPaint(new GradientPaint(0, 0, ACC, 40, 40, ACC2)); g.fill(new Ellipse2D.Float(20, h - 66, 40, 40));
-            g.setColor(Color.WHITE); g.setFont(font(Font.BOLD, 17)); String ini = user.isEmpty() ? "?" : user.substring(0, 1).toUpperCase(); FontMetrics fm = g.getFontMetrics(); g.drawString(ini, 20 + (40 - fm.stringWidth(ini)) / 2, h - 66 + (40 + fm.getAscent() - fm.getDescent()) / 2);
-            g.setColor(FG); g.setFont(font(Font.BOLD, 14)); g.drawString(user, 70, h - 49); g.setColor(MUTED); g.setFont(font(Font.PLAIN, 12)); g.drawString("Çıkış yap", 70, h - 32);
-        }
+        protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); int w = getWidth(), h = getHeight(); g.setColor(new Color(255, 255, 255, 8)); g.fillRect(0, 0, w, h); g.setColor(new Color(255, 255, 255, 14)); g.fillRect(w - 1, 0, 1, h); g.setFont(font(Font.BOLD, 34)); g.setPaint(new GradientPaint(0, 30, new Color(200, 150, 255), 120, 70, ACC)); g.drawString("KURO", 28, 66); g.setFont(font(Font.BOLD, 10)); g.setColor(MUTED); g.drawString("L A U N C H E R", 30, 84); g.setPaint(new GradientPaint(16, 0, new Color(150, 90, 255, 70), w - 16, 0, new Color(105, 70, 235, 25))); g.fill(new RoundRectangle2D.Float(16, 110 + pos.v * 52, w - 32, 46, 14, 14)); g.setColor(ACC); g.fill(new RoundRectangle2D.Float(16, 120 + pos.v * 52, 4, 26, 4, 4)); g.setFont(font(Font.BOLD, 15)); for (int i = 0; i < items.length; i++) { float d = Math.min(1f, Math.abs(pos.v - i)); Color c = mix(FG, hover == i ? new Color(200, 200, 220) : MUTED, d); g.setColor(c); g.drawString(items[i], 44, 110 + i * 52 + 29); } g.setColor(new Color(255, 255, 255, 14)); g.fillRect(16, h - 84, w - 32, 1); g.setPaint(new GradientPaint(0, 0, ACC, 40, 40, ACC2)); g.fill(new Ellipse2D.Float(20, h - 66, 40, 40)); g.setColor(Color.WHITE); g.setFont(font(Font.BOLD, 17)); String ini = user.isEmpty() ? "?" : user.substring(0, 1).toUpperCase(); FontMetrics fm = g.getFontMetrics(); g.drawString(ini, 20 + (40 - fm.stringWidth(ini)) / 2, h - 66 + (40 + fm.getAscent() - fm.getDescent()) / 2); g.setColor(FG); g.setFont(font(Font.BOLD, 14)); g.drawString(user, 70, h - 49); g.setColor(MUTED); g.setFont(font(Font.PLAIN, 12)); g.drawString("Çıkış yap", 70, h - 32); }
     }
 
-    // ---------- durum ----------
     static Map<String, Object> cfg = new LinkedHashMap<>();
-    JFrame frame; Pager screen = new Pager(), pages = new Pager(); Sidebar side = new Sidebar();
-    JPanel app, playPage, setPage;
+    JFrame frame; Pager screen = new Pager(), pages = new Pager(); Sidebar side = new Sidebar(); JPanel app, playPage, setPage;
     JLabel status = lbl(" ", 13, false, MUTED), subtitle = lbl(" ", 14, false, MUTED);
-    KProgress progress = new KProgress(); KButton play, cancelBtn;
-    JTextArea log = new JTextArea();
-    KPick verPick = new KPick(), loaderVerPick = new KPick(), catPick = new KPick();
-    Seg loaderSeg = new Seg(LOADERS);
-    JPanel installedList = vbox(), resultList = vbox(), instanceList = vbox();
-    JLabel modInfo = lbl(" ", 13, false, MUTED);
-    Map<String, String> versionUrls = new LinkedHashMap<>();
-    String account, selVer = "", selLoaderVer = "", selCat = "Tümü";
-    int selLoader;
-    static AtomicBoolean cancelFlag = new AtomicBoolean(false);
-    Process runningGame;
+    KProgress progress = new KProgress(); KButton play, cancelBtn; JTextArea log = new JTextArea();
+    KPick verPick = new KPick(), loaderVerPick = new KPick(), catPick = new KPick(); Seg loaderSeg = new Seg(LOADERS);
+    JPanel installedList = vbox(), resultList = vbox(), instanceList = vbox(); JLabel modInfo = lbl(" ", 13, false, MUTED);
+    Map<String, String> versionUrls = new LinkedHashMap<>(); String account, selVer = "", selLoaderVer = "", selCat = "Tümü"; int selLoader;
+    static AtomicBoolean cancelFlag = new AtomicBoolean(false); Process runningGame;
 
     static void loadCfg() { try { cfg = Json.obj(Files.readString(ROOT.resolve("settings.json"))); } catch (Exception e) { cfg = new LinkedHashMap<>(); } }
     static void saveCfg() { try { Files.createDirectories(ROOT); Files.writeString(ROOT.resolve("settings.json"), Json.str(cfg)); } catch (Exception e) { } }
@@ -239,69 +135,50 @@ public class Kuro {
     static void setAccounts(List<String> l) { cfg.put("accounts", new ArrayList<Object>(l)); saveCfg(); }
 
     public static void main(String[] a) { loadCfg(); SwingUtilities.invokeLater(() -> new Kuro().start()); }
-
     Path instDir() { String safe = (selVer.isEmpty() ? "unknown" : selVer) + "-" + LOADERS[selLoader].toLowerCase(); return ROOT.resolve("instances").resolve(safe); }
 
     void start() {
         frame = new JFrame("Kuro Launcher"); frame.setUndecorated(true); frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); frame.setSize(1020, 680); frame.setLocationRelativeTo(null); frame.setShape(new RoundRectangle2D.Double(0, 0, 1020, 680, 26, 26));
         Bg bg = new Bg(); bg.add(new TitleBar(frame), BorderLayout.NORTH); screen.setBorder(new EmptyBorder(0, 0, 0, 0)); bg.add(screen, BorderLayout.CENTER); frame.setContentPane(bg);
-
-        selLoader = Math.max(0, Arrays.asList(LOADERS).indexOf(cs("loader", "Fabric")));
+        selLoader = Math.max(0, Arrays.asList(LOADERS).indexOf(cs("loader", "Vanilla")));
         selVer = cs("version", ""); selLoaderVer = cs("loaderVer", "");
-        loaderSeg.init(selLoader);
-        loaderSeg.on = i -> { selLoader = i; cfg.put("loader", LOADERS[i]); saveCfg(); updateInfo(); refreshMods(); loadLoaderVersions(); };
-        verPick.text = selVer.isEmpty() ? "Yükleniyor..." : selVer;
-        verPick.on = v -> { selVer = v; cfg.put("version", v); saveCfg(); updateInfo(); refreshMods(); };
+        loaderSeg.init(selLoader); loaderSeg.on = i -> { selLoader = i; cfg.put("loader", LOADERS[i]); saveCfg(); updateInfo(); refreshMods(); loadLoaderVersions(); };
+        verPick.text = selVer.isEmpty() ? "Yükleniyor..." : selVer; verPick.on = v -> { selVer = v; cfg.put("version", v); saveCfg(); updateInfo(); refreshMods(); };
         loaderVerPick.on = v -> { selLoaderVer = v; cfg.put("loaderVer", v); saveCfg(); };
-
         buildApp(); account = cs("last", null);
-        if (account != null) { side.user = account; screen.add(app, BorderLayout.CENTER); updateInfo(); }
-        else screen.add(buildLogin(), BorderLayout.CENTER);
-        frame.setVisible(true);
-
-        new Thread(this::loadVersions).start(); new Thread(this::loadLoaderVersions).start();
+        if (account != null) { side.user = account; screen.add(app, BorderLayout.CENTER); updateInfo(); } else screen.add(buildLogin(), BorderLayout.CENTER);
+        frame.setVisible(true); new Thread(this::loadVersions).start(); new Thread(this::loadLoaderVersions).start();
     }
-
     void updateInfo() { SwingUtilities.invokeLater(() -> { subtitle.setText("Hazır mısın, " + (account == null ? "" : account) + "?"); String lv = selLoaderVer.isEmpty() ? "" : " / " + selLoaderVer; modInfo.setText(selVer + "  -  " + LOADERS[selLoader] + lv); }); }
 
-    // ---------- login ----------
     JComponent buildLogin() {
         JPanel center = new JPanel(new GridBagLayout()); center.setOpaque(false);
         JPanel card = new JPanel() { protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); g.setColor(new Color(20, 20, 30, 215)); g.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 26, 26)); g.setColor(new Color(255, 255, 255, 22)); g.draw(new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1, getHeight() - 1, 26, 26)); } };
-        card.setOpaque(false); card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS)); card.setBorder(new EmptyBorder(30, 30, 30, 30));
-        JLabel logo = lbl("KURO", 46, true, ACC); logo.setAlignmentX(0.5f); JLabel sub = lbl("Hesabını seç ya da yeni oluştur", 13, false, MUTED); sub.setAlignmentX(0.5f); card.add(logo); card.add(sub); card.add(Box.createVerticalStrut(18));
+        card.setOpaque(false); card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS)); card.setBorder(new EmptyBorder(30, 30, 30, 30)); JLabel logo = lbl("KURO", 46, true, ACC); logo.setAlignmentX(0.5f); JLabel sub = lbl("Hesabını seç ya da yeni oluştur", 13, false, MUTED); sub.setAlignmentX(0.5f); card.add(logo); card.add(sub); card.add(Box.createVerticalStrut(18));
         JPanel accs = vbox(); accs.setAlignmentX(0.5f);
         for (String n : accounts()) { KButton x = new KButton("x", false, null); x.setPreferredSize(new Dimension(32, 30)); Row r = new Row(n, "Çevrimdışı hesap", x); x.click = () -> { List<String> l = accounts(); l.remove(n); setAccounts(l); screen.show(buildLogin()); }; r.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); r.addMouseListener(new MouseAdapter() { public void mouseReleased(MouseEvent e) { if (r.contains(e.getPoint())) login(n); } }); accs.add(r); accs.add(Box.createVerticalStrut(6)); }
-        card.add(accs);
-        KField name = fixed(new KField("Kullanıcı adı (3-16, harf/rakam/_)"), 340, 44); JLabel err = lbl(" ", 12, false, RED); err.setAlignmentX(0.5f);
+        card.add(accs); KField name = fixed(new KField("Kullanıcı adı (3-16, harf/rakam/_)"), 340, 44); JLabel err = lbl(" ", 12, false, RED); err.setAlignmentX(0.5f);
         Runnable go = () -> { String n = name.getText().trim(); if (!n.matches("[A-Za-z0-9_]{3,16}")) { err.setText("Geçersiz kullanıcı adı (3-16 karakter, harf/rakam/_)"); return; } login(n); };
-        name.addActionListener(e -> go.run());
-        KButton enter = fixed(new KButton("Giriş Yap", true, go), 340, 44);
+        name.addActionListener(e -> go.run()); KButton enter = fixed(new KButton("Giriş Yap", true, go), 340, 44);
         card.add(Box.createVerticalStrut(8)); card.add(name); card.add(Box.createVerticalStrut(4)); card.add(err); card.add(Box.createVerticalStrut(6)); card.add(enter); center.add(card); return center;
     }
-
     void login(String n) { List<String> l = accounts(); if (!l.contains(n)) l.add(n); setAccounts(l); account = n; cfg.put("last", n); saveCfg(); side.user = n; updateInfo(); screen.show(app); }
     void logout() { account = null; cfg.remove("last"); saveCfg(); side.user = ""; screen.show(buildLogin()); }
 
-    // ---------- app ----------
     void buildApp() { app = new JPanel(new BorderLayout()); app.setOpaque(false); side.on = i -> { if (i == 0) pages.show(playPage); else if (i == 1) pages.show(buildMods()); else pages.show(setPage); }; side.logout = this::logout; app.add(side, BorderLayout.WEST); playPage = buildPlay(); setPage = buildSettings(); pages.add(playPage, BorderLayout.CENTER); app.add(pages, BorderLayout.CENTER); }
     JPanel pageBase() { JPanel p = new JPanel(new BorderLayout(0, 16)); p.setOpaque(false); p.setBorder(new EmptyBorder(8, 34, 28, 34)); return p; }
 
     JPanel buildPlay() {
-        JPanel p = pageBase(); JPanel head = vbox();
-        head.add(lbl("Oyna", 30, true, FG)); head.add(subtitle); head.add(Box.createVerticalStrut(20));
+        JPanel p = pageBase(); JPanel head = vbox(); head.add(lbl("Oyna", 30, true, FG)); head.add(subtitle); head.add(Box.createVerticalStrut(20));
         head.add(lbl("SÜRÜM", 11, true, MUTED)); head.add(Box.createVerticalStrut(6));
         JPanel vr = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0)); vr.setOpaque(false); vr.setAlignmentX(0f); verPick.setPreferredSize(new Dimension(300, 44)); vr.add(verPick); head.add(vr); head.add(Box.createVerticalStrut(14));
         head.add(lbl("MOD YÜKLEYİCİ", 11, true, MUTED)); head.add(Box.createVerticalStrut(6));
         JPanel sr = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0)); sr.setOpaque(false); sr.setAlignmentX(0f); loaderSeg.setPreferredSize(new Dimension(380, 44)); sr.add(loaderSeg); head.add(sr); head.add(Box.createVerticalStrut(14));
         head.add(lbl("LOADER SÜRÜMÜ", 11, true, MUTED)); head.add(Box.createVerticalStrut(6));
         JPanel lr = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0)); lr.setOpaque(false); lr.setAlignmentX(0f); loaderVerPick.setPreferredSize(new Dimension(260, 44)); lr.add(loaderVerPick); head.add(lr);
-        p.add(head, BorderLayout.NORTH);
-        log.setEditable(false); log.setOpaque(false); log.setForeground(new Color(170, 170, 190)); log.setFont(new Font("Consolas", Font.PLAIN, 12));
-        JScrollPane sp = new JScrollPane(log); darkScroll(sp); sp.setBorder(new EmptyBorder(8, 12, 8, 4));
-        JPanel logBox = new JPanel(new BorderLayout()) { protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); g.setColor(new Color(12, 12, 18, 200)); g.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 14, 14)); } };
-        logBox.setOpaque(false); logBox.add(sp); p.add(logBox, BorderLayout.CENTER);
-        JPanel south = new JPanel(new BorderLayout(16, 0)); south.setOpaque(false); JPanel pr = new JPanel(new GridLayout(2, 1, 0, 8)); pr.setOpaque(false); pr.add(status); pr.add(progress); south.add(pr, BorderLayout.CENTER);
+        p.add(head, BorderLayout.NORTH); log.setEditable(false); log.setOpaque(false); log.setForeground(new Color(170, 170, 190)); log.setFont(new Font("Consolas", Font.PLAIN, 12));
+        JScrollPane sp = new JScrollPane(log); darkScroll(sp); sp.setBorder(new EmptyBorder(8, 12, 8, 4)); JPanel logBox = new JPanel(new BorderLayout()) { protected void paintComponent(Graphics g0) { Graphics2D g = aa(g0); g.setColor(new Color(12, 12, 18, 200)); g.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 14, 14)); } };
+        logBox.setOpaque(false); logBox.add(sp); p.add(logBox, BorderLayout.CENTER); JPanel south = new JPanel(new BorderLayout(16, 0)); south.setOpaque(false); JPanel pr = new JPanel(new GridLayout(2, 1, 0, 8)); pr.setOpaque(false); pr.add(status); pr.add(progress); south.add(pr, BorderLayout.CENTER);
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0)); btns.setOpaque(false); cancelBtn = new KButton("İptal", false, () -> { cancelFlag.set(true); if (runningGame != null) { runningGame.destroy(); runningGame = null; } log("İptal edildi."); }); cancelBtn.setPreferredSize(new Dimension(100, 54)); cancelBtn.setVisible(false);
         play = new KButton("OYNA", true, () -> new Thread(this::launch).start()); play.setPreferredSize(new Dimension(200, 54)); btns.add(cancelBtn); btns.add(play); south.add(btns, BorderLayout.EAST); p.add(south, BorderLayout.SOUTH); return p;
     }
@@ -322,10 +199,8 @@ public class Kuro {
         try { Files.createDirectories(root); try (Stream<Path> s = Files.list(root)) { List<Path> dirs = s.filter(Files::isDirectory).sorted().toList(); for (Path d : dirs) { String name = d.getFileName().toString(); KButton open = new KButton("Aç", false, () -> open(d)); open.setPreferredSize(new Dimension(60, 34)); KButton del = new KButton("Sil", false, () -> { int r = JOptionPane.showConfirmDialog(frame, name + " silinsin mi? (modlar, kayıtlar dahil)", "Sil", JOptionPane.YES_NO_OPTION); if (r == JOptionPane.YES_OPTION) { try { deleteRecursive(d); refreshInstances(); } catch (IOException ex) { log("Silinemedi: " + ex); } } }); del.setPreferredSize(new Dimension(50, 34)); instanceList.add(new Row(name, d.toString(), open, del)); instanceList.add(Box.createVerticalStrut(4)); } } }
         catch (Exception e) { log("Örnek listesi hatası: " + e); } if (instanceList.getComponentCount() == 0) instanceList.add(new Row("Henüz örnek yok", "Oyna sekmesinden başlatınca otomatik oluşur", new JComponent[0])); instanceList.revalidate(); instanceList.repaint();
     }
-
     static void open(Path d) { try { Files.createDirectories(d); Desktop.getDesktop().open(d.toFile()); } catch (Exception e) { } }
 
-    // ---------- modlar ----------
     JPanel buildMods() {
         JPanel p = pageBase(); JPanel head = new JPanel(new BorderLayout()); head.setOpaque(false); JPanel t = vbox(); t.add(lbl("Modlar", 30, true, FG)); t.add(modInfo); head.add(t, BorderLayout.CENTER);
         JPanel hb = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8)); hb.setOpaque(false); KButton add = new KButton("Dosya ekle", false, this::addModFile); add.setPreferredSize(new Dimension(120, 40)); KButton of = new KButton("Klasörü aç", false, () -> open(instDir().resolve("mods"))); of.setPreferredSize(new Dimension(120, 40)); hb.add(add); hb.add(of); head.add(hb, BorderLayout.EAST); p.add(head, BorderLayout.NORTH);
@@ -364,7 +239,6 @@ public class Kuro {
     void log(String s) { SwingUtilities.invokeLater(() -> { log.append(s + "\n"); if (log.getSelectionStart() == log.getSelectionEnd()) log.setCaretPosition(log.getDocument().getLength()); }); }
     void prog(int v, int max, String t) { SwingUtilities.invokeLater(() -> { progress.set(max == 0 ? 0 : v / (float) max); status.setText(t); }); }
 
-    // ---------- loader sürümleri ----------
     void loadLoaderVersions() {
         new Thread(() -> { try { if (selLoader == 0) { SwingUtilities.invokeLater(() -> { loaderVerPick.items.clear(); loaderVerPick.text = "-"; selLoaderVer = ""; loaderVerPick.repaint(); }); return; } String base = "https://meta.fabricmc.net/v2/versions/loader"; List<Object> arr = Json.arr(Json.parse(get(base))); List<String> vers = new ArrayList<>(); for (Object o : arr) vers.add(String.valueOf(Json.obj(o).get("version"))); SwingUtilities.invokeLater(() -> { loaderVerPick.items.clear(); loaderVerPick.items.addAll(vers); if (selLoaderVer.isEmpty() || !vers.contains(selLoaderVer)) { selLoaderVer = vers.isEmpty() ? "" : vers.get(0); cfg.put("loaderVer", selLoaderVer); } loaderVerPick.text = selLoaderVer.isEmpty() ? "Sürüm yok" : selLoaderVer; loaderVerPick.repaint(); }); } catch (Exception e) { log("Loader sürümleri alınamadı: " + e); } }).start();
     }
@@ -374,13 +248,11 @@ public class Kuro {
         SwingUtilities.invokeLater(() -> { verPick.items.clear(); verPick.items.addAll(versionUrls.keySet()); if (selVer.isEmpty() || !versionUrls.containsKey(selVer)) { selVer = verPick.items.isEmpty() ? "" : verPick.items.get(0); if (!selVer.isEmpty()) cfg.put("version", selVer); } verPick.text = selVer.isEmpty() ? "Sürüm yok" : selVer; verPick.repaint(); updateInfo(); refreshMods(); }); } catch (Exception e) { log("Sürüm listesi alınamadı: " + e); }
     }
 
-    // ---------- native çıkarma ----------
     static void extractNatives(List<Map<String, Object>> libs) {
         Path natives = ROOT.resolve("natives");
         try { Files.createDirectories(natives); for (Map<String, Object> lib : libs) { if (!allowed(lib.get("rules"))) continue; Map<String, Object> dl = lib.get("downloads") == null ? null : Json.obj(lib.get("downloads")); if (dl == null || dl.get("classifiers") == null) continue; Map<String, Object> cls = Json.obj(dl.get("classifiers")); String key = "natives-" + OS; if (OS.equals("osx")) key = "natives-macos"; if (cls.get(key) == null) continue; Map<String, Object> nativeA = Json.obj(cls.get(key)); String url = (String) nativeA.get("url"); String path = (String) nativeA.get("path"); Path jar = ROOT.resolve("libraries").resolve(path); if (!Files.exists(jar)) { try { download(url, jar, 0, p -> { }); } catch (Exception e) { continue; } } try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(jar))) { ZipEntry ze; while ((ze = zis.getNextEntry()) != null) { if (ze.isDirectory()) continue; String name = ze.getName(); if (name.startsWith("META-INF/")) continue; if (!(name.endsWith(".so") || name.endsWith(".dll") || name.endsWith(".dylib"))) continue; Path out = natives.resolve(Paths.get(name).getFileName().toString()); Files.copy(zis, out, StandardCopyOption.REPLACE_EXISTING); } } catch (Exception e) { } } } catch (Exception e) { }
     }
 
-    // ---------- ASIL SİHİR BURADA: LAUNCH VE ASM KATİLİ ----------
     void launch() {
         cancelFlag.set(false);
         SwingUtilities.invokeLater(() -> { play.setEnabled(false); cancelBtn.setVisible(true); });
@@ -419,26 +291,9 @@ public class Kuro {
                 collectArgs(fp, jvmExtra, gameExtra);
             }
 
-            // ASM TEMİZLEYİCİ: Çakışan eski dosyaları sil!
-            log("Kütüphane çakışmaları temizleniyor (Anti-Crash)...");
-            Path asmDir = ROOT.resolve("libraries").resolve("org").resolve("ow2").resolve("asm");
-            if (Files.exists(asmDir)) {
-                try (Stream<Path> s = Files.list(asmDir)) {
-                    List<Path> asmFolders = s.toList();
-                    for (Path p : asmFolders) {
-                        try { deleteRecursive(p); } catch (Exception e) {}
-                    }
-                }
-            }
-            Path fabricAsmDir = ROOT.resolve("libraries").resolve("net").resolve("fabricmc").resolve("intermediary");
-            if (Files.exists(fabricAsmDir)) {
-                // Fabric'in eski cache'lerini de temizleyelim
-                try { deleteRecursive(ROOT.resolve("libraries").resolve("net").resolve("fabricmc")); } catch (Exception e) {}
-            }
-
+            log("Kütüphaneler hazırlanıyor...");
             List<Path> cp = new ArrayList<>();
             List<String[]> jobs = new ArrayList<>();
-            Set<String> seenLibs = new HashSet<>();
             for (Map<String, Object> lib : libs) {
                 if (!allowed(lib.get("rules"))) continue;
                 Map<String, Object> dl = lib.get("downloads") == null ? null : Json.obj(lib.get("downloads"));
@@ -451,11 +306,6 @@ public class Kuro {
                     rel = c[0].replace('.', '/') + "/" + c[1] + "/" + c[2] + "/" + c[1] + "-" + c[2] + ".jar";
                     url = lib.get("url") + rel;
                 } else continue;
-                
-                String group = rel.split("/")[0] + ":" + rel.split("/")[1] + ":" + rel.split("/")[2];
-                if (seenLibs.contains(group)) continue;
-                seenLibs.add(group);
-
                 Path dst = ROOT.resolve("libraries").resolve(rel);
                 jobs.add(new String[]{url, dst.toString()});
                 cp.add(dst);
@@ -513,7 +363,7 @@ public class Kuro {
             vars.put("auth_access_token", "0"); vars.put("clientid", "0"); vars.put("auth_xuid", "0");
             vars.put("user_type", "legacy"); vars.put("version_type", "Kuro");
             vars.put("natives_directory", ROOT.resolve("natives").toString());
-            vars.put("launcher_name", "Kuro"); vars.put("launcher_version", "4.0");
+            vars.put("launcher_name", "Kuro"); vars.put("launcher_version", "5.0");
             vars.put("classpath", cps.toString());
 
             String javaBin = cs("javaPath", "");
@@ -560,7 +410,6 @@ public class Kuro {
     }
 }
 
-/** Tiny JSON parser/serializer (no external dependencies). */
 class Json {
     final String s; int i;
     Json(String s) { this.s = s; }
